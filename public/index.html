@@ -61,18 +61,17 @@
                         <div id="taskBar" class="progress-fill"></div>
                     </div>
                 </div>
-                <!-- NEW: Current room display -->
+                <!-- Current room display -->
                 <div id="currentRoom" class="current-room"></div>
             </div>
             <div class="hud-right">
-                <button id="reportButton" onclick="reportBody()" class="btn btn-danger" style="display: none;">Report Body</button>
-                <button id="emergencyButton" onclick="emergencyMeeting()" class="btn btn-warning">Emergency Meeting</button>
-                <button id="killButton" onclick="attemptKill()" class="btn btn-danger" style="display: none;">Kill</button>
+                <!-- NEW: Keyboard controls hint -->
+                <div class="controls-hint">F = Kill | R = Report | E = Meeting</div>
             </div>
         </div>
         <canvas id="gameCanvas" width="1200" height="800"></canvas>
         <div class="controls-info">
-            Use WASD or Arrow Keys to move
+            Use WASD or Arrow Keys to move | SPACE to complete tasks
         </div>
     </div>
 

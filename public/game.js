@@ -31,6 +31,9 @@ const keys = {};
 let lastMoveTime = 0;
 const MOVE_INTERVAL = 50; // ms between position updates
 
+// NEW: Vision settings
+const VISION_RADIUS = 150; // Circular vision radius for alive players
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
@@ -45,6 +48,25 @@ function setupEventListeners() {
         // Space for task completion
         if (e.key === ' ' && gameState.nearTask !== null) {
             completeTask(gameState.nearTask);
+            e.preventDefault();
+        }
+        
+        // NEW: Keyboard controls for actions
+        // F key - Kill (impostors only)
+        if (e.key.toLowerCase() === 'f' && gameState.currentScreen === 'game') {
+            attemptKill();
+            e.preventDefault();
+        }
+        
+        // R key - Report body
+        if (e.key.toLowerCase() === 'r' && gameState.currentScreen === 'game') {
+            reportBody();
+            e.preventDefault();
+        }
+        
+        // E key - Emergency meeting
+        if (e.key.toLowerCase() === 'e' && gameState.currentScreen === 'game') {
+            emergencyMeeting();
             e.preventDefault();
         }
     });
@@ -448,13 +470,13 @@ function renderGame() {
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // NEW: Draw map rooms (floor)
+    // Draw map rooms (floor)
     ctx.fillStyle = '#2d2d44';
     for (const room of gameState.mapRooms) {
         ctx.fillRect(room.x, room.y, room.width, room.height);
     }
     
-    // NEW: Draw room labels
+    // Draw room labels
     ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'center';
@@ -462,7 +484,7 @@ function renderGame() {
         ctx.fillText(room.name, room.x + room.width / 2, room.y + room.height / 2);
     }
     
-    // NEW: Draw walls
+    // Draw walls
     ctx.fillStyle = '#0f0f1e';
     for (const wall of gameState.mapWalls) {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
@@ -529,6 +551,34 @@ function renderGame() {
         
         ctx.globalAlpha = 1;
     });
+    
+    // NEW: Apply fog of war (vision masking)
+    // Only if player is alive - dead players see everything
+    if (gameState.myPlayer && gameState.myPlayer.alive) {
+        // Create radial gradient for vision effect
+        const gradient = ctx.createRadialGradient(
+            gameState.myPlayer.x, gameState.myPlayer.y, VISION_RADIUS * 0.7,
+            gameState.myPlayer.x, gameState.myPlayer.y, VISION_RADIUS
+        );
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
+        
+        // Save context and apply fog
+        ctx.save();
+        
+        // Fill entire canvas with dark overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Cut out vision circle using destination-out compositing
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(gameState.myPlayer.x, gameState.myPlayer.y, VISION_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
 }
 
 function completeTask(taskIndex) {
@@ -538,7 +588,7 @@ function completeTask(taskIndex) {
 function attemptKill() {
     if (gameState.role !== 'impostor' || !gameState.myPlayer || !gameState.myPlayer.alive) return;
     
-    // Find nearest alive player
+    // Find nearest alive player within kill range
     let nearest = null;
     let minDist = Infinity;
     
@@ -558,14 +608,28 @@ function attemptKill() {
     
     if (nearest) {
         socket.emit('kill', nearest.id);
+    } else {
+        // Optional: Show feedback that no one is in range
+        if (gameState.role === 'impostor') {
+            showToast('No one in kill range');
+        }
     }
 }
 
 function reportBody() {
+    // Check if near a body
+    if (!gameState.nearBody) {
+        showToast('No body nearby');
+        return;
+    }
     socket.emit('reportBody');
 }
 
 function emergencyMeeting() {
+    if (!gameState.myPlayer || !gameState.myPlayer.alive) {
+        showToast('Dead players cannot call meetings');
+        return;
+    }
     socket.emit('emergencyMeeting');
 }
 

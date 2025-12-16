@@ -257,6 +257,15 @@ input[type="text"]:focus {
     font-size: 1.1em;
 }
 
+/* NEW: Keyboard controls hint */
+.controls-hint {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 0.9em;
+    letter-spacing: 0.5px;
+}
+
 #gameCanvas {
     display: block;
     margin: 70px auto 0;
@@ -268,7 +277,7 @@ input[type="text"]:focus {
 .controls-info {
     text-align: center;
     padding: 15px;
-    font-size: 1.1em;
+    font-size: 1em;
     background: rgba(0, 0, 0, 0.5);
 }
 

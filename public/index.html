@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crew Game - Multiplayer Social Deduction</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Menu Screen -->
+    <div id="menu" class="screen active">
+        <div class="container">
+            <h1>Crew Game</h1>
+            <div class="menu-content">
+                <div id="initial-menu">
+                    <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
+                    <button onclick="showCreateJoin()" class="btn btn-primary">Continue</button>
+                </div>
+                
+                <div id="create-join-menu" style="display: none;">
+                    <button onclick="createRoom()" class="btn btn-primary">Create Room</button>
+                    <button onclick="showJoinRoom()" class="btn btn-secondary">Join Room</button>
+                    <button onclick="backToInitial()" class="btn btn-tertiary">Back</button>
+                </div>
+                
+                <div id="join-room-menu" style="display: none;">
+                    <input type="text" id="roomCode" placeholder="Enter 6-digit room code" maxlength="6">
+                    <button onclick="joinRoom()" class="btn btn-primary">Join</button>
+                    <button onclick="backToCreateJoin()" class="btn btn-tertiary">Back</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lobby Screen -->
+    <div id="lobby" class="screen">
+        <div class="container">
+            <h1>Lobby</h1>
+            <div class="room-code">
+                Room Code: <span id="lobbyRoomCode"></span>
+            </div>
+            <div class="players-list">
+                <h3>Players (<span id="playerCount">0</span>/10)</h3>
+                <div id="playersList"></div>
+            </div>
+            <div class="lobby-controls">
+                <button id="startButton" onclick="startGame()" class="btn btn-primary" style="display: none;">Start Game</button>
+                <button onclick="leaveRoom()" class="btn btn-secondary">Leave Room</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game" class="screen">
+        <div class="game-hud">
+            <div class="hud-left">
+                <div id="roleDisplay"></div>
+                <div id="taskProgress" style="display: none;">
+                    Tasks: <span id="taskCount">0/0</span>
+                    <div class="progress-bar">
+                        <div id="taskBar" class="progress-fill"></div>
+                    </div>
+                </div>
+                <!-- NEW: Current room display -->
+                <div id="currentRoom" class="current-room"></div>
+            </div>
+            <div class="hud-right">
+                <button id="reportButton" onclick="reportBody()" class="btn btn-danger" style="display: none;">Report Body</button>
+                <button id="emergencyButton" onclick="emergencyMeeting()" class="btn btn-warning">Emergency Meeting</button>
+                <button id="killButton" onclick="attemptKill()" class="btn btn-danger" style="display: none;">Kill</button>
+            </div>
+        </div>
+        <canvas id="gameCanvas" width="1200" height="800"></canvas>
+        <div class="controls-info">
+            Use WASD or Arrow Keys to move
+        </div>
+    </div>
+
+    <!-- Meeting Screen -->
+    <div id="meeting" class="screen">
+        <div class="container meeting-container">
+            <h1>Meeting</h1>
+            <div id="meetingInfo"></div>
+            
+            <!-- NEW: Chat box during meetings -->
+            <div class="chat-section">
+                <h3>Discussion</h3>
+                <div id="chatBox" class="chat-box"></div>
+                <div class="chat-input-area">
+                    <input type="text" id="chatInput" placeholder="Type your message..." maxlength="200">
+                    <button onclick="sendChatMessage()" class="btn btn-primary">Send</button>
+                </div>
+            </div>
+            
+            <div class="voting-area">
+                <h3>Vote to Eject</h3>
+                <div id="votingList"></div>
+            </div>
+            <div id="votingResults" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOver" class="screen">
+        <div class="container">
+            <h1 id="winnerText"></h1>
+            <div id="finalStats"></div>
+            <button onclick="returnToMenu()" class="btn btn-primary">Return to Menu</button>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <h2 id="taskTitle"></h2>
+            <p>Press SPACE to complete this task</p>
+            <button onclick="closeTaskModal()" class="btn btn-secondary">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="errorToast" class="toast"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

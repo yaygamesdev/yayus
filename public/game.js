@@ -121,7 +121,7 @@ function setupSocketListeners() {
         gameState.role = role;
         gameState.tasks = tasks || [];
         gameState.completedTasks.clear();
-        // NEW: Store map data
+        // Store map data
         gameState.mapWalls = mapWalls;
         gameState.mapRooms = mapRooms;
         
@@ -132,13 +132,13 @@ function setupSocketListeners() {
         roleDisplay.textContent = role === 'impostor' ? 'IMPOSTOR' : 'CREWMATE';
         roleDisplay.className = role === 'impostor' ? 'role-impostor' : 'role-crewmate';
         
+        // FIX: prevent null DOM access - removed button references
         // Show/hide UI elements based on role
+        const taskProgress = document.getElementById('taskProgress');
         if (role === 'impostor') {
-            document.getElementById('killButton').style.display = 'block';
-            document.getElementById('taskProgress').style.display = 'none';
+            if (taskProgress) taskProgress.style.display = 'none';
         } else {
-            document.getElementById('killButton').style.display = 'none';
-            document.getElementById('taskProgress').style.display = 'block';
+            if (taskProgress) taskProgress.style.display = 'block';
             updateTaskDisplay();
         }
         
@@ -157,10 +157,16 @@ function setupSocketListeners() {
         gameState.bodies = bodies;
         
         if (gameState.role === 'crewmate') {
-            document.getElementById('taskCount').textContent = 
-                `${completedTasks}/${totalTasks}`;
-            const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-            document.getElementById('taskBar').style.width = progress + '%';
+            const taskCount = document.getElementById('taskCount');
+            const taskBar = document.getElementById('taskBar');
+            // FIX: prevent null DOM access
+            if (taskCount) {
+                taskCount.textContent = `${completedTasks}/${totalTasks}`;
+            }
+            if (taskBar) {
+                const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+                taskBar.style.width = progress + '%';
+            }
         }
         
         renderGame();
@@ -190,10 +196,16 @@ function setupSocketListeners() {
         }
         
         if (gameState.role === 'crewmate') {
-            document.getElementById('taskCount').textContent = 
-                `${completedTasks}/${totalTasks}`;
-            const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-            document.getElementById('taskBar').style.width = progress + '%';
+            const taskCount = document.getElementById('taskCount');
+            const taskBar = document.getElementById('taskBar');
+            // FIX: prevent null DOM access
+            if (taskCount) {
+                taskCount.textContent = `${completedTasks}/${totalTasks}`;
+            }
+            if (taskBar) {
+                const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+                taskBar.style.width = progress + '%';
+            }
         }
     });
     
@@ -201,19 +213,29 @@ function setupSocketListeners() {
         showScreen('meeting');
         
         const info = document.getElementById('meetingInfo');
-        info.innerHTML = `
-            <h2>${reason === 'body' ? '☠️ Body Reported' : '🚨 Emergency Meeting'}</h2>
-            <p>Called by: ${caller}</p>
-            <p>Time to vote: ${votingTime / 1000}s</p>
-        `;
+        // FIX: prevent null DOM access
+        if (info) {
+            info.innerHTML = `
+                <h2>${reason === 'body' ? '☠️ Body Reported' : '🚨 Emergency Meeting'}</h2>
+                <p>Called by: ${caller}</p>
+                <p>Time to vote: ${votingTime / 1000}s</p>
+            `;
+        }
         
-        // NEW: Clear and show chat box
+        // Clear and show chat box
         const chatBox = document.getElementById('chatBox');
-        chatBox.innerHTML = '';
-        document.getElementById('chatInput').value = '';
-        document.getElementById('chatInput').disabled = false;
+        const chatInput = document.getElementById('chatInput');
+        // FIX: prevent null DOM access
+        if (chatBox) chatBox.innerHTML = '';
+        if (chatInput) {
+            chatInput.value = '';
+            chatInput.disabled = false;
+        }
         
         const votingList = document.getElementById('votingList');
+        // FIX: prevent null DOM access
+        if (!votingList) return;
+        
         votingList.innerHTML = '';
         
         // Add skip option
@@ -239,10 +261,14 @@ function setupSocketListeners() {
     
     socket.on('votingComplete', ({ ejected, tie, votes }) => {
         const results = document.getElementById('votingResults');
+        // FIX: prevent null DOM access
+        if (!results) return;
+        
         results.style.display = 'block';
         
-        // NEW: Disable chat input after voting
-        document.getElementById('chatInput').disabled = true;
+        // Disable chat input after voting
+        const chatInput = document.getElementById('chatInput');
+        if (chatInput) chatInput.disabled = true;
         
         if (tie) {
             results.innerHTML = '<h2>No one was ejected (Tie)</h2>';
@@ -267,6 +293,9 @@ function setupSocketListeners() {
         
         const winnerText = document.getElementById('winnerText');
         const stats = document.getElementById('finalStats');
+        
+        // FIX: prevent null DOM access
+        if (!winnerText || !stats) return;
         
         if (winner === 'impostor') {
             winnerText.textContent = '☠️ Impostors Win!';
@@ -656,6 +685,8 @@ function sendChatMessage() {
 
 function addChatMessage(chatMsg) {
     const chatBox = document.getElementById('chatBox');
+    // FIX: prevent null DOM access - fail gracefully if meeting UI not active
+    if (!chatBox) return;
     
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-message';
@@ -678,6 +709,7 @@ function escapeHtml(text) {
 // Allow Enter key to send chat
 document.addEventListener('DOMContentLoaded', () => {
     const chatInput = document.getElementById('chatInput');
+    // FIX: prevent null DOM access - only add listener if element exists
     if (chatInput) {
         chatInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -698,12 +730,17 @@ function showScreen(screen) {
 
 function showTaskModal(taskIndex) {
     const task = gameState.tasks[taskIndex];
-    document.getElementById('taskTitle').textContent = task.name;
-    document.getElementById('taskModal').classList.add('active');
+    const taskTitle = document.getElementById('taskTitle');
+    const taskModal = document.getElementById('taskModal');
+    // FIX: prevent null DOM access
+    if (taskTitle) taskTitle.textContent = task.name;
+    if (taskModal) taskModal.classList.add('active');
 }
 
 function closeTaskModal() {
-    document.getElementById('taskModal').classList.remove('active');
+    const taskModal = document.getElementById('taskModal');
+    // FIX: prevent null DOM access
+    if (taskModal) taskModal.classList.remove('active');
 }
 
 function updateTaskDisplay() {
@@ -721,6 +758,9 @@ function updateTaskDisplay() {
 
 function showToast(message) {
     const toast = document.getElementById('errorToast');
+    // FIX: prevent null DOM access
+    if (!toast) return;
+    
     toast.textContent = message;
     toast.classList.add('active');
     

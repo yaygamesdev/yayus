@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Among Us Clone</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #1a1a2e;
+      color: white;
+      overflow: hidden;
+    }
+    #gameContainer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #gameCanvas {
+      background: #16213e;
+      border: 3px solid #0f3460;
+    }
+    #ui {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px;
+      border-radius: 10px;
+      min-width: 200px;
+    }
+    #role {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .imposter { color: #e74c3c; }
+    .crewmate { color: #3498db; }
+    #tasks {
+      margin-top: 10px;
+    }
+    .task-bar {
+      background: #34495e;
+      height: 20px;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+    .task-progress {
+      background: #2ecc71;
+      height: 100%;
+      transition: width 0.3s;
+    }
+    #voting {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      padding: 30px;
+      border-radius: 15px;
+      display: none;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    #voting h2 {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .vote-btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      background: #3498db;
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .vote-btn:hover {
+      background: #2980b9;
+    }
+    .vote-btn.dead {
+      background: #7f8c8d;
+      cursor: not-allowed;
+    }
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      padding: 40px;
+      border-radius: 15px;
+      display: none;
+      text-align: center;
+    }
+    #gameOver h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    #killPrompt {
+      position: absolute;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(231, 76, 60, 0.9);
+      padding: 10px 20px;
+      border-radius: 5px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div id="ui">
+      <div id="role"></div>
+      <div id="tasks"></div>
+      <div>Players: <span id="playerCount">0</span></div>
+    </div>
+    
+    <div id="voting">
+      <h2>Emergency Meeting!</h2>
+      <div id="voteButtons"></div>
+    </div>
+    
+    <div id="gameOver">
+      <h1 id="winnerText"></h1>
+    </div>
+    
+    <div id="killPrompt">Press SPACE to KILL</div>
+    
+    <div id="controls">
+      <div>WASD/Arrows: Move</div>
+      <div>R: Report Body</div>
+      <div id="spaceControl">Space: Complete Task</div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const socket = io();
+    
+    let myId = null;
+    let myRole = null;
+    let players = {};
+    let tasks = [];
+    let gameState = 'playing';
+    let currentTaskProgress = 0;
+    let nearTask = null;
+    let nearPlayer = null;
+    
+    const keys = {};
+    const speed = 3;
+    
+    // Socket events
+    socket.on('init', (data) => {
+      myId = data.id;
+      myRole = data.role;
+      tasks = data.tasks;
+      
+      document.getElementById('role').textContent = myRole;
+      document.getElementById('role').className = myRole.toLowerCase();
+      
+      if (myRole === 'Imposter') {
+        document.getElementById('spaceControl').textContent = 'Space: Kill';
+      }
+      
+      updateTasksUI();
+    });
+    
+    socket.on('gameState', (data) => {
+      players = data.players;
+      gameState = data.state;
+      document.getElementById('playerCount').textContent = Object.keys(players).length;
+    });
+    
+    socket.on('meetingStarted', () => {
+      gameState = 'meeting';
+      showVoting();
+    });
+    
+    socket.on('meetingEnded', () => {
+      gameState = 'playing';
+      document.getElementById('voting').style.display = 'none';
+    });
+    
+    socket.on('playerKilled', (targetId) => {
+      console.log('Player killed:', targetId);
+    });
+    
+    socket.on('playerEjected', (data) => {
+      alert(`${data.id} was ejected. They were ${data.role}`);
+    });
+    
+    socket.on('gameOver', (winner) => {
+      gameState = 'gameOver';
+      document.getElementById('winnerText').textContent = `${winner} Win!`;
+      document.getElementById('gameOver').style.display = 'block';
+    });
+    
+    // Input handling
+    document.addEventListener('keydown', (e) => {
+      keys[e.key.toLowerCase()] = true;
+      
+      if (e.key === ' ' && gameState === 'playing') {
+        e.preventDefault();
+        if (myRole === 'Imposter' && nearPlayer) {
+          socket.emit('kill', nearPlayer);
+        } else if (myRole === 'Crewmate' && nearTask !== null) {
+          // Task completion handled in game loop
+        }
+      }
+      
+      if (e.key.toLowerCase() === 'r' && gameState === 'playing') {
+        socket.emit('report');
+      }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+      keys[e.key.toLowerCase()] = false;
+      if (e.key === ' ') {
+        currentTaskProgress = 0;
+      }
+    });
+    
+    function showVoting() {
+      const votingDiv = document.getElementById('voting');
+      const buttonsDiv = document.getElementById('voteButtons');
+      buttonsDiv.innerHTML = '';
+      
+      Object.values(players).forEach(player => {
+        if (!player.isDead) {
+          const btn = document.createElement('button');
+          btn.className = 'vote-btn';
+          btn.textContent = `Vote ${player.id.substring(0, 8)}`;
+          btn.style.background = player.color;
+          btn.onclick = () => {
+            socket.emit('vote', player.id);
+            votingDiv.style.display = 'none';
+          };
+          buttonsDiv.appendChild(btn);
+        }
+      });
+      
+      const skipBtn = document.createElement('button');
+      skipBtn.className = 'vote-btn';
+      skipBtn.textContent = 'Skip Vote';
+      skipBtn.style.background = '#95a5a6';
+      skipBtn.onclick = () => {
+        socket.emit('vote', 'skip');
+        votingDiv.style.display = 'none';
+      };
+      buttonsDiv.appendChild(skipBtn);
+      
+      votingDiv.style.display = 'block';
+    }
+    
+    function updateTasksUI() {
+      const tasksDiv = document.getElementById('tasks');
+      if (myRole === 'Crewmate') {
+        const me = players[myId];
+        const completed = me ? me.tasksCompleted : 0;
+        tasksDiv.innerHTML = `Tasks: ${completed}/3`;
+      } else {
+        tasksDiv.innerHTML = '';
+      }
+    }
+    
+    // Game loop
+    function gameLoop() {
+      if (!players[myId] || players[myId].isDead) {
+        render();
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+      
+      if (gameState === 'playing') {
+        // Movement
+        let dx = 0, dy = 0;
+        if (keys['w'] || keys['arrowup']) dy -= speed;
+        if (keys['s'] || keys['arrowdown']) dy += speed;
+        if (keys['a'] || keys['arrowleft']) dx -= speed;
+        if (keys['d'] || keys['arrowright']) dx += speed;
+        
+        if (dx !== 0 || dy !== 0) {
+          const newX = Math.max(20, Math.min(canvas.width - 20, players[myId].x + dx));
+          const newY = Math.max(20, Math.min(canvas.height - 20, players[myId].y + dy));
+          socket.emit('movement', { x: newX, y: newY });
+        }
+        
+        // Check near tasks (for Crewmates)
+        nearTask = null;
+        if (myRole === 'Crewmate') {
+          tasks.forEach((task, idx) => {
+            const dist = Math.sqrt(
+              Math.pow(players[myId].x - (task.x + task.width/2), 2) +
+              Math.pow(players[myId].y - (task.y + task.height/2), 2)
+            );
+            if (dist < 60) nearTask = idx;
+          });
+          
+          if (nearTask !== null && keys[' ']) {
+            currentTaskProgress += 2;
+            if (currentTaskProgress >= 100) {
+              socket.emit('taskComplete');
+              currentTaskProgress = 0;
+              updateTasksUI();
+            }
+          }
+        }
+        
+        // Check near players (for Imposters)
+        nearPlayer = null;
+        if (myRole === 'Imposter') {
+          Object.values(players).forEach(p => {
+            if (p.id !== myId && !p.isDead) {
+              const dist = Math.sqrt(
+                Math.pow(players[myId].x - p.x, 2) +
+                Math.pow(players[myId].y - p.y, 2)
+              );
+              if (dist < 50) nearPlayer = p.id;
+            }
+          });
+        }
+        
+        document.getElementById('killPrompt').style.display = 
+          (myRole === 'Imposter' && nearPlayer) ? 'block' : 'none';
+      }
+      
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+    
+    function render() {
+      // Clear canvas
+      ctx.fillStyle = '#16213e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw tasks
+      ctx.strokeStyle = '#f39c12';
+      ctx.lineWidth = 3;
+      tasks.forEach(task => {
+        ctx.strokeRect(task.x, task.y, task.width, task.height);
+      });
+      
+      // Draw players
+      Object.values(players).forEach(player => {
+        if (player.isDead) {
+          // Draw dead body
+          ctx.fillStyle = '#7f8c8d';
+          ctx.font = 'bold 30px Arial';
+          ctx.fillText('X', player.x - 10, player.y + 10);
+        } else {
+          // Draw alive player
+          // Show red only if I'm the imposter or if this is me
+          const isImposter = player.role === 'Imposter' && (myRole === 'Imposter' || player.id === myId);
+          ctx.fillStyle = isImposter ? '#e74c3c' : player.color;
+          
+          ctx.beginPath();
+          ctx.arc(player.x, player.y, 20, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Draw outline for current player
+          if (player.id === myId) {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+          }
+        }
+      });
+      
+      // Draw task progress bar
+      if (nearTask !== null && myRole === 'Crewmate' && currentTaskProgress > 0) {
+        const task = tasks[nearTask];
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(task.x, task.y - 30, task.width, 15);
+        ctx.fillStyle = '#2ecc71';
+        ctx.fillRect(task.x, task.y - 30, (task.width * currentTaskProgress) / 100, 15);
+      }
+    }
+    
+    // Start game loop
+    gameLoop();
+  </script>
+</body>
+</html>
